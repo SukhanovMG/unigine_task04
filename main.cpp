@@ -86,78 +86,100 @@ class WordReader
 {
 public:
     WordReader(const char* fname)
-        : infile(fname, ios_base::binary), buffer{0}, occupied(0), find_pos(0)
+        : m_infile(fname, ios_base::binary), m_buffer{0},
+          m_begin(m_buffer), m_end(m_buffer + N),
+          m_cursor(m_buffer), m_occupied(0)
     {
+        read_next_chunk(m_begin);
     }
-    // продолжить чтение файла в буфер, начиная с позиции pos
-    bool read_next_chunk(unsigned pos = 0)
+    // продолжить чтение файла в буфер, начиная с указателя start
+    bool read_next_chunk(char* start)
     {
-        infile.read(buffer + pos, N - pos);
-        occupied = pos + infile.gcount();
-        find_pos = pos;
-        return occupied > pos;
+        // cout << "read_next_chunk" << endl;
+        // cout << "array state: ";
+        // cout.write(m_begin, m_end - m_begin);
+        // cout << endl;
+        m_infile.read(start, m_end - start);
+        m_occupied = start - m_begin + m_infile.gcount();
+        m_cursor = start;
+        // cout << "array state: ";
+        // cout.write(m_begin, m_end - m_begin);
+        // cout << endl;
+        return m_occupied > 0;
     }
-    void move_to_begin(unsigned pos)
+    void move_to_begin(const char* start)
     {
-        for (unsigned i = 0, j = pos; j < occupied; i++, j++)
+        // cout << "move_to_begin" << endl;
+        // cout << "array state: ";
+        // cout.write(m_begin, m_end - m_begin);
+        // cout << endl;
+        unsigned pos = start - m_begin;
+        for (unsigned i = 0, j = pos; j < m_occupied; i++, j++)
         {
-            buffer[i] = buffer[j];
+            m_buffer[i] = m_buffer[j];
         }
-        if (occupied >= pos)
-            occupied-=pos;
-    }
-    unsigned find_from_pos(unsigned pos, unowned_string& uo_str)
-    {
-        cout << "find_from_pos " << pos << endl;
-        const char *str = nullptr;
-        unsigned len = 0;
-        unsigned bytes_processed = 0;
-        for(unsigned i = pos; i < occupied; i++)
+        if (m_occupied >= pos)
         {
-            bytes_processed++;
-            if (is_char(buffer[i]))
-            {
-                if (str == nullptr)
-                    str = &buffer[i];
-                len++;
-            }
-            else
-            {
-                if (str != nullptr)
-                    break;
-            }
+            m_occupied-=pos;
+            m_cursor = m_begin + m_occupied;
         }
-        uo_str = unowned_string(str, len);
-        return bytes_processed;
+        // cout << "array state: ";
+        // cout.write(m_begin, m_end - m_begin);
+        // cout << endl;
+    }
+    bool find(unowned_string& hint)
+    {
+        const char* find_pos = hint.c_str() + hint.size();
+        unsigned len = hint.size();
+        unsigned len_before = len;
+        if (len == 0)
+        {
+            while(!is_char(*find_pos) && find_pos != m_begin + m_occupied)
+                find_pos++;
+        }
+        for (const char* s = find_pos; s < m_begin + m_occupied; s++)
+        {
+            if (!is_char(*s))
+                break;
+            len++;
+        }
+        hint = unowned_string(find_pos, len);
+        m_cursor = (char*)find_pos + len;
+        return len - len_before != 0;
     }
     unowned_string find_next_word()
     {
-        unowned_string uo_str;
-        // чтение до тех пор, пока не найдём слово или не кончится файл
-        while(uo_str.c_str() == nullptr)
+        unowned_string uo_str(m_cursor, 0);
+        // Фаза 1: Найти начало очередного слова
+        while(!find(uo_str))
         {
-            if ((occupied == 0 || find_pos == occupied) && !read_next_chunk())
+            if (!read_next_chunk(m_begin))
                 return uo_str;
-            unsigned bytes_processed = find_from_pos(find_pos, uo_str);
-            find_pos += bytes_processed;
+            uo_str = unowned_string(m_cursor, 0);
         }
-        // Если слово не лежит на границе, то вернуть слово
-        if (uo_str.c_str() + uo_str.size() != buffer + N)
+        // Фаза 2: Если слово не на границе, то поиск завершён
+        if (m_cursor != m_begin + m_occupied)
             return uo_str;
-        cout << "edge" << endl;
-        move_to_begin(uo_str.c_str() - buffer);
-        uo_str = unowned_string(buffer, uo_str.size());
-        read_next_chunk(uo_str.size());
-        if (!is_char(buffer[find_pos]))
-            return uo_str;
-        cout << "could find more" << endl;
+        // Фаза 3: Перемещение слова из конца буфера в начало
+        move_to_begin(uo_str.c_str());
+        // Фаза 4: Дочитывание из файла и поиск продолжения слова
+        while (true)
+        {
+            if (!read_next_chunk(m_cursor))
+                break;
+            if (!find(uo_str))
+                break;
+        }
+        // Пока не хватает ограничения на максимальную длину слова
         return uo_str;
     }
+
 //private:
-    ifstream infile;
-    char buffer[N];
-    unsigned occupied;
-    unsigned find_pos;
+    ifstream m_infile;
+    char m_buffer[N];
+    char *m_begin, *m_end;
+    char *m_cursor;
+    unsigned m_occupied;
 };
 
 // HASH
@@ -244,12 +266,11 @@ int main()
     while(true)
     {
         unowned_string uo_str = wr.find_next_word();
-        if (uo_str.c_str() == nullptr)
+        if (uo_str.size() == 0)
             break;
         cout.write(uo_str.c_str(), uo_str.size());
         cout << endl;
     }
-    cout << "=======" << endl;
 
     // unowned_string str1("ololo", strlen("ololo"));
     // unowned_string str2("eisenhower", strlen("eisenhower"));
