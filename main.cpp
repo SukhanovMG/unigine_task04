@@ -95,24 +95,13 @@ public:
     // продолжить чтение файла в буфер, начиная с указателя start
     bool read_next_chunk(char* start)
     {
-        // cout << "read_next_chunk" << endl;
-        // cout << "array state: ";
-        // cout.write(m_begin, m_end - m_begin);
-        // cout << endl;
         m_infile.read(start, m_end - start);
         m_occupied = start - m_begin + m_infile.gcount();
         m_cursor = start;
-        // cout << "array state: ";
-        // cout.write(m_begin, m_end - m_begin);
-        // cout << endl;
         return m_occupied > 0;
     }
     void move_to_begin(const char* start)
     {
-        // cout << "move_to_begin" << endl;
-        // cout << "array state: ";
-        // cout.write(m_begin, m_end - m_begin);
-        // cout << endl;
         unsigned pos = start - m_begin;
         for (unsigned i = 0, j = pos; j < m_occupied; i++, j++)
         {
@@ -123,16 +112,14 @@ public:
             m_occupied-=pos;
             m_cursor = m_begin + m_occupied;
         }
-        // cout << "array state: ";
-        // cout.write(m_begin, m_end - m_begin);
-        // cout << endl;
     }
     bool find(unowned_string& hint)
     {
         const char* find_pos = hint.c_str() + hint.size();
         unsigned len = hint.size();
         unsigned len_before = len;
-        if (len == 0)
+        bool continued_find = len > 0;
+        if (!continued_find)
         {
             while(!is_char(*find_pos) && find_pos != m_begin + m_occupied)
                 find_pos++;
@@ -143,7 +130,10 @@ public:
                 break;
             len++;
         }
-        hint = unowned_string(find_pos, len);
+        if (continued_find)
+            hint = unowned_string(hint.c_str(), len);
+        else
+            hint = unowned_string(find_pos, len);
         m_cursor = (char*)find_pos + len;
         return len - len_before != 0;
     }
@@ -162,6 +152,7 @@ public:
             return uo_str;
         // Фаза 3: Перемещение слова из конца буфера в начало
         move_to_begin(uo_str.c_str());
+        uo_str = unowned_string(m_begin, uo_str.size());
         // Фаза 4: Дочитывание из файла и поиск продолжения слова
         while (true)
         {
