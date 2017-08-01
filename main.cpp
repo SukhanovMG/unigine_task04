@@ -187,14 +187,9 @@ public:
         move_to_begin(uo_str.c_str());
         uo_str = unowned_string(m_begin, uo_str.size());
         // Фаза 4: Дочитывание из файла и поиск продолжения слова
-        while (true)
-        {
-            if (!read_next_chunk(m_cursor))
-                break;
-            if (!find(uo_str))
-                break;
-        }
-        // Пока не хватает ограничения на максимальную длину слова
+        // Не сработает, если слово не помещается в буфер :(
+        if (read_next_chunk(m_cursor))
+            find(uo_str);
         return uo_str;
     }
 
@@ -289,37 +284,53 @@ entry* hash_table::operator[](unsigned idx)
     return &m_entries[idx];
 }
 
-int main()
+int main(int argc, const char *argv[])
 {
-    WordReader<1024*1024, 1024> wr("build/in.txt");
+    if (argc < 2)
+    {
+        cerr << "Not enough arguments" << endl;
+        return 1;
+    }
+    WordReader<1024*1024, 1024> wr(argv[1]);
 
-    // hash_table h(1024*1024);
-    // while(true)
+    // while (true)
     // {
     //     unowned_string uo_str = wr.find_next_word();
     //     if (uo_str.size() == 0)
     //         break;
-    //     h[uo_str]++;
+    //     cout.write(uo_str.c_str(), uo_str.size());
+    //     cout << endl;
     // }
 
-    // for (unsigned i = 0; i < h.size(); i++)
-    // {
-    //     if (h[i]->key.c_str() != nullptr)
-    //         cout << h[i]->key.c_str() << ": " << h[i]->value << endl;
-    // }
-
-    unordered_map<string, unsigned> m;
+    hash_table h(1024*1024);
     while(true)
     {
         unowned_string uo_str = wr.find_next_word();
         if (uo_str.size() == 0)
             break;
-        string str(uo_str.c_str(), uo_str.size());
-        m[str]++;
+        h[uo_str]++;
     }
-    for (auto e : m)
+
+    for (unsigned i = 0; i < h.size(); i++)
     {
-        cout << e.first << ": " << e.second << endl;
+        if (h[i]->key.c_str() != nullptr)
+            cout << h[i]->key.c_str() << ": " << h[i]->value << endl;
     }
+
+
+    // UNORDERED_MAP
+    // unordered_map<string, unsigned> m;
+    // while(true)
+    // {
+    //     unowned_string uo_str = wr.find_next_word();
+    //     if (uo_str.size() == 0)
+    //         break;
+    //     string str(uo_str.c_str(), uo_str.size());
+    //     m[str]++;
+    // }
+    // for (auto e : m)
+    // {
+    //     cout << e.first << ": " << e.second << endl;
+    // }
     return 0;
 }
