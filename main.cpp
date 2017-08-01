@@ -113,28 +113,41 @@ public:
             m_cursor = m_begin + m_occupied;
         }
     }
+    // Найти в заполненном буфере слово или продолжить поиск уже найденного слова
+    // Возвращает были ли найден хоть один символ для слова
     bool find(unowned_string& hint)
     {
+        // Определение начальных данных для поиска.
+        // Может быть первый поиск слова, тогда ищем слово, начиная с hint.c_str(), а hint.size() == 0
+        // Может быть поиск продолжения слова (для слова найденного на границе буфера),
+        // тогда ищем с hint.c_str() + hint.size()
         const char* find_pos = hint.c_str() + hint.size();
         unsigned len = hint.size();
         unsigned len_before = len;
         bool continued_find = len > 0;
+        // Если не продолжение поиска, то нужно сдвинуться до первого подходящего симвовла
         if (!continued_find)
         {
             while(!is_char(*find_pos) && find_pos != m_begin + m_occupied)
                 find_pos++;
         }
+        // Перемещение курсора для последующего поиска
+        m_cursor = (char*)find_pos;
+        // Здесь наращиваем длину слова до первой "не буквы" или до конца буфера
         for (const char* s = find_pos; s < m_begin + m_occupied; s++)
         {
             if (!is_char(*s))
                 break;
-            len++;
+            // Ограничение на максимальную длину слова
+            if (len < MAX_WORD_SZ)
+                len++;
+            // Курсор сдвивагается всегда, чтобы обрезать длинное слово
+            m_cursor++;
         }
         if (continued_find)
             hint = unowned_string(hint.c_str(), len);
         else
             hint = unowned_string(find_pos, len);
-        m_cursor = (char*)find_pos + len;
         return len - len_before != 0;
     }
     unowned_string find_next_word()
@@ -252,7 +265,7 @@ int main()
 {
     //hash_table h(1024);
 
-    WordReader<16, 1024> wr("build/in.txt");
+    WordReader<16, 5> wr("build/in.txt");
 
     while(true)
     {
