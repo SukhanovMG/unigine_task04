@@ -1,10 +1,11 @@
+#include <cstdlib>
 #include <cstring>
 #include <stdint.h>
 #include <iostream>
 #include <fstream>
 
-#include <string>
-#include <unordered_map>
+// #include <string>
+// #include <unordered_map>
 
 using namespace std;
 
@@ -236,9 +237,9 @@ class hash_table
 {
 public:
     hash_table(unsigned size)
-        : m_size(size)
+        : m_max_size(size), m_size(0)
     {
-        m_entries = new entry[size];
+        m_entries = new entry[m_max_size];
     }
     ~hash_table()
     {
@@ -246,12 +247,14 @@ public:
     }
 
     unsigned size() const { return m_size; }
+    unsigned max_size() const { return m_max_size; }
 
     unsigned& operator[](const unowned_string& uo_str);
     entry* operator[](unsigned idx);
 
 private:
     entry* m_entries;
+    unsigned m_max_size;
     unsigned m_size;
 };
 
@@ -260,7 +263,7 @@ unsigned& hash_table::operator[](const unowned_string& uo_str)
     //cout << uo_str.c_str() << endl;
     uint32_t crc = crc32c(uo_str.c_str(), uo_str.size());
     //cout << "crc: " << hex << crc << dec << endl;
-    unsigned index = crc % m_size;
+    unsigned index = crc % m_max_size;
     //cout << "index: " << index << endl;
 
     while (m_entries[index].key.c_str() != nullptr)
@@ -274,14 +277,46 @@ unsigned& hash_table::operator[](const unowned_string& uo_str)
     //cout << "inserting in slot " << index << endl;
     m_entries[index].key = uo_str;
     m_entries[index].value = 0;
+    m_size++;
     return m_entries[index].value;
 }
 
 entry* hash_table::operator[](unsigned idx)
 {
-    if (idx >= m_size)
+    if (idx >= m_max_size)
         return nullptr;
     return &m_entries[idx];
+}
+
+void sort_and_out(hash_table& h)
+{
+    entry* entries[h.size()];
+
+    for (unsigned i = 0, j = 0; i < h.max_size(); i++)
+    {
+        if (h[i]->key.c_str() != nullptr)
+        {
+            entries[j++] = h[i];
+        }
+    }
+
+    qsort(entries, h.size(), sizeof(entry*), [](const void* l, const void* r)
+    {
+        const entry *left = *static_cast<const entry* const *>(l);
+        const entry *right = *static_cast<const entry* const *>(r);
+
+        if (left->value > right-> value)
+            return -1;
+        else if (left->value < right->value)
+            return 1;
+        else
+            return strcmp(left->key.c_str(), right->key.c_str());
+    });
+
+    for (unsigned i = 0; i < h.size(); i++)
+    {
+        cout << entries[i]->value << " " << entries[i]->key.c_str() << endl;
+    }
 }
 
 int main(int argc, const char *argv[])
@@ -293,15 +328,6 @@ int main(int argc, const char *argv[])
     }
     WordReader<1024*1024, 1024> wr(argv[1]);
 
-    // while (true)
-    // {
-    //     unowned_string uo_str = wr.find_next_word();
-    //     if (uo_str.size() == 0)
-    //         break;
-    //     cout.write(uo_str.c_str(), uo_str.size());
-    //     cout << endl;
-    // }
-
     hash_table h(1024*1024);
     while(true)
     {
@@ -310,13 +336,7 @@ int main(int argc, const char *argv[])
             break;
         h[uo_str]++;
     }
-
-    for (unsigned i = 0; i < h.size(); i++)
-    {
-        if (h[i]->key.c_str() != nullptr)
-            cout << h[i]->key.c_str() << ": " << h[i]->value << endl;
-    }
-
+    sort_and_out(h);
 
     // UNORDERED_MAP
     // unordered_map<string, unsigned> m;
