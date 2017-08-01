@@ -3,6 +3,9 @@
 #include <iostream>
 #include <fstream>
 
+#include <string>
+#include <unordered_map>
+
 using namespace std;
 
 // STRINGS
@@ -42,6 +45,15 @@ public:
     {
         init_from_buf(uo_str.c_str(), uo_str.size());
     }
+    mystring(const string& str)
+    {
+        init_from_buf(str.c_str(), str.size());
+    }
+    mystring& operator=(const string& str)
+    {
+        init_from_buf(str.c_str(), str.size());
+        return *this;
+    }
     mystring& operator=(const unowned_string& uo_str)
     {
         init_from_buf(uo_str.c_str(), uo_str.size());
@@ -69,7 +81,8 @@ private:
     void init_from_buf(const char* buf, unsigned len)
     {
         m_str = new char[len+1];
-        strncpy(m_str, buf, len+1);
+        strncpy(m_str, buf, len);
+        m_str[len] = '\0';
         m_len = len;
     }
 };
@@ -79,6 +92,12 @@ private:
 bool is_char(char c)
 {
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
+}
+
+bool to_lower(char& c)
+{
+    if (c >= 'A' && c <= 'Z')
+        c += 32;
 }
 
 template <unsigned N, unsigned MAX_WORD_SZ>
@@ -134,10 +153,11 @@ public:
         // Перемещение курсора для последующего поиска
         m_cursor = (char*)find_pos;
         // Здесь наращиваем длину слова до первой "не буквы" или до конца буфера
-        for (const char* s = find_pos; s < m_begin + m_occupied; s++)
+        for (char* s = (char*)find_pos; s < m_begin + m_occupied; s++)
         {
             if (!is_char(*s))
                 break;
+            to_lower(*s);
             // Ограничение на максимальную длину слова
             if (len < MAX_WORD_SZ)
                 len++;
@@ -271,35 +291,35 @@ entry* hash_table::operator[](unsigned idx)
 
 int main()
 {
-    hash_table h(1024);
+    WordReader<1024*1024, 1024> wr("build/in.txt");
 
-    //WordReader<16, 5> wr("build/in.txt");
-
+    // hash_table h(1024*1024);
     // while(true)
     // {
     //     unowned_string uo_str = wr.find_next_word();
     //     if (uo_str.size() == 0)
     //         break;
-    //     cout.write(uo_str.c_str(), uo_str.size());
-    //     cout << endl;
+    //     h[uo_str]++;
     // }
 
-    unowned_string str1("ololo", strlen("ololo"));
-    unowned_string str2("eisenhower", strlen("eisenhower"));
-    unowned_string str3("petfood", strlen("petfood"));
+    // for (unsigned i = 0; i < h.size(); i++)
+    // {
+    //     if (h[i]->key.c_str() != nullptr)
+    //         cout << h[i]->key.c_str() << ": " << h[i]->value << endl;
+    // }
 
-    h[str1] = 1;
-    h[str2] = 2;
-    h[str3] = 3;
-
-    cout << str1.c_str() << " >> " << h[str1] << endl;
-    cout << str2.c_str() << " >> " << h[str2] << endl;
-    cout << str3.c_str() << " >> " << h[str3] << endl;
-
-    for (unsigned i = 0; i < h.size(); i++)
+    unordered_map<string, unsigned> m;
+    while(true)
     {
-        if (h[i]->key.c_str() != nullptr)
-            cout << h[i]->key.c_str() << ": " << h[i]->value << endl;
+        unowned_string uo_str = wr.find_next_word();
+        if (uo_str.size() == 0)
+            break;
+        string str(uo_str.c_str(), uo_str.size());
+        m[str]++;
+    }
+    for (auto e : m)
+    {
+        cout << e.first << ": " << e.second << endl;
     }
     return 0;
 }
