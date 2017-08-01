@@ -233,6 +233,7 @@ public:
     unsigned size() const { return m_size; }
 
     unsigned& operator[](const unowned_string& uo_str);
+    entry* operator[](unsigned idx);
 
 private:
     entry* m_entries;
@@ -241,51 +242,64 @@ private:
 
 unsigned& hash_table::operator[](const unowned_string& uo_str)
 {
-    cout << uo_str.c_str() << endl;
+    //cout << uo_str.c_str() << endl;
     uint32_t crc = crc32c(uo_str.c_str(), uo_str.size());
-    cout << "crc: " << hex << crc << dec << endl;
+    //cout << "crc: " << hex << crc << dec << endl;
     unsigned index = crc % m_size;
-    cout << "index: " << index << endl;
+    //cout << "index: " << index << endl;
 
     while (m_entries[index].key.c_str() != nullptr)
     {
-        cout << "slot[" << index << "]: " << (m_entries[index].key.c_str() == nullptr ? "nullptr" : m_entries[index].key.c_str()) << endl;
+        //cout << "slot[" << index << "]: " << (m_entries[index].key.c_str() == nullptr ? "nullptr" : m_entries[index].key.c_str()) << endl;
         if (m_entries[index].key == uo_str)
             return m_entries[index].value;
         index++;
     }
 
-    cout << "inserting in slot " << index << endl;
+    //cout << "inserting in slot " << index << endl;
     m_entries[index].key = uo_str;
     m_entries[index].value = 0;
     return m_entries[index].value;
 }
 
+entry* hash_table::operator[](unsigned idx)
+{
+    if (idx >= m_size)
+        return nullptr;
+    return &m_entries[idx];
+}
+
 int main()
 {
-    //hash_table h(1024);
+    hash_table h(1024);
 
-    WordReader<16, 5> wr("build/in.txt");
+    //WordReader<16, 5> wr("build/in.txt");
 
-    while(true)
+    // while(true)
+    // {
+    //     unowned_string uo_str = wr.find_next_word();
+    //     if (uo_str.size() == 0)
+    //         break;
+    //     cout.write(uo_str.c_str(), uo_str.size());
+    //     cout << endl;
+    // }
+
+    unowned_string str1("ololo", strlen("ololo"));
+    unowned_string str2("eisenhower", strlen("eisenhower"));
+    unowned_string str3("petfood", strlen("petfood"));
+
+    h[str1] = 1;
+    h[str2] = 2;
+    h[str3] = 3;
+
+    cout << str1.c_str() << " >> " << h[str1] << endl;
+    cout << str2.c_str() << " >> " << h[str2] << endl;
+    cout << str3.c_str() << " >> " << h[str3] << endl;
+
+    for (unsigned i = 0; i < h.size(); i++)
     {
-        unowned_string uo_str = wr.find_next_word();
-        if (uo_str.size() == 0)
-            break;
-        cout.write(uo_str.c_str(), uo_str.size());
-        cout << endl;
+        if (h[i]->key.c_str() != nullptr)
+            cout << h[i]->key.c_str() << ": " << h[i]->value << endl;
     }
-
-    // unowned_string str1("ololo", strlen("ololo"));
-    // unowned_string str2("eisenhower", strlen("eisenhower"));
-    // unowned_string str3("petfood", strlen("petfood"));
-
-    // h[str1] = 1;
-    // h[str2] = 2;
-    // h[str3] = 3;
-
-    // cout << str1.c_str() << " >> " << h[str1] << endl;
-    // cout << str2.c_str() << " >> " << h[str2] << endl;
-    // cout << str3.c_str() << " >> " << h[str3] << endl;
     return 0;
 }
