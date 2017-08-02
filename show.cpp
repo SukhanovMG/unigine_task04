@@ -19,6 +19,12 @@ public:
         : m_str(str), m_len(len)
     {
     }
+    unowned_string& operator=(const unowned_string& uo_str)
+    {
+        m_str = uo_str.c_str();
+        m_len = uo_str.size();
+        return *this;
+    }
     ~unowned_string() {}
     const char *c_str() const { return m_str; }
     unsigned size() const { return m_len; }
@@ -103,11 +109,19 @@ class WordReader
 {
 public:
     WordReader(const char* fname)
-        : m_infile(fname, ios_base::binary), m_buffer{0},
-          m_begin(m_buffer), m_end(m_buffer + N),
-          m_cursor(m_buffer), m_occupied(0)
+        : m_infile(fname, ios_base::binary), m_buffer(nullptr),
+          m_begin(nullptr), m_end(nullptr),
+          m_cursor(nullptr), m_occupied(0)
     {
+        m_buffer = new char[N];
+        m_begin = m_buffer;
+        m_end = m_buffer + N;
+        m_cursor = m_buffer;
         read_next_chunk(m_begin);
+    }
+    ~WordReader()
+    {
+        delete[] m_buffer;
     }
     // продолжить чтение файла в буфер, начиная с указателя start
     bool read_next_chunk(char* start)
@@ -195,7 +209,7 @@ public:
 
 private:
     ifstream m_infile;
-    char m_buffer[N];
+    char *m_buffer;
     char *m_begin, *m_end;
     char *m_cursor;
     unsigned m_occupied;
@@ -203,19 +217,42 @@ private:
 
 // HASH
 
-#define POLY 0xedb88320
-
-uint32_t crc32c(const char *buf, size_t len, uint32_t crc = 0)
-{
-    int k;
-
-    crc = ~crc;
-    while (len--) {
-        crc ^= *buf++;
-        for (k = 0; k < 8; k++)
-            crc = crc & 1 ? (crc >> 1) ^ POLY : crc >> 1;
-    }
-    return ~crc;
+uint32_t murmur3_32(const char* key, size_t len, uint32_t seed = 0) {
+  uint32_t h = seed;
+  if (len > 3) {
+    const uint32_t* key_x4 = (const uint32_t*) key;
+    size_t i = len >> 2;
+    do {
+      uint32_t k = *key_x4++;
+      k *= 0xcc9e2d51;
+      k = (k << 15) | (k >> 17);
+      k *= 0x1b873593;
+      h ^= k;
+      h = (h << 13) | (h >> 19);
+      h = (h * 5) + 0xe6546b64;
+    } while (--i);
+    key = (const char*) key_x4;
+  }
+  if (len & 3) {
+    size_t i = len & 3;
+    uint32_t k = 0;
+    key = &key[i - 1];
+    do {
+      k <<= 8;
+      k |= *key--;
+    } while (--i);
+    k *= 0xcc9e2d51;
+    k = (k << 15) | (k >> 17);
+    k *= 0x1b873593;
+    h ^= k;
+  }
+  h ^= len;
+  h ^= h >> 16;
+  h *= 0x85ebca6b;
+  h ^= h >> 13;
+  h *= 0xc2b2ae35;
+  h ^= h >> 16;
+  return h;
 }
 
 struct entry
@@ -260,14 +297,16 @@ private:
 // почти как в настоящем контейнере :)
 unsigned& hash_table::operator[](const unowned_string& uo_str)
 {
-    uint32_t crc = crc32c(uo_str.c_str(), uo_str.size());
-    unsigned index = crc % m_max_size;
+    uint32_t hash = murmur3_32(uo_str.c_str(), uo_str.size());
+    unsigned index = hash % m_max_size;
 
     while (m_entries[index].key.c_str() != nullptr)
     {
         if (m_entries[index].key == uo_str)
             return m_entries[index].value;
         index++;
+        if (index == m_max_size)
+            index = 0;
     }
 
     m_entries[index].key = uo_str;
@@ -326,13 +365,14 @@ int main(int argc, const char *argv[])
             cerr << "Not enough arguments" << endl;
             return 1;
         }
-        WordReader<1024*1024, 1024> wr(argv[1]);
+        WordReader<16*1024*1024, 1024> wr(argv[1]);
         ofstream out_file(argv[2]);
 
         hash_table h(1024*1024);
+        unowned_string uo_str;
         while(true)
         {
-            unowned_string uo_str = wr.find_next_word();
+            uo_str = wr.find_next_word();
             if (uo_str.size() == 0)
                 break;
             h[uo_str]++;
