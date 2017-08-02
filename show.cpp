@@ -4,9 +4,6 @@
 #include <iostream>
 #include <fstream>
 
-// #include <string>
-// #include <unordered_map>
-
 using namespace std;
 
 // STRINGS
@@ -120,6 +117,7 @@ public:
         m_cursor = start;
         return m_occupied > 0;
     }
+    // Сдвинуть лежащее на границе слово, начиная со start, в начало буфера
     void move_to_begin(const char* start)
     {
         unsigned pos = start - m_begin;
@@ -171,6 +169,7 @@ public:
             hint = unowned_string(find_pos, len);
         return len - len_before != 0;
     }
+    // Найти очередное слово, в том числе и дочитать файл сколько надо
     unowned_string find_next_word()
     {
         unowned_string uo_str(m_cursor, 0);
@@ -194,7 +193,7 @@ public:
         return uo_str;
     }
 
-//private:
+private:
     ifstream m_infile;
     char m_buffer[N];
     char *m_begin, *m_end;
@@ -258,29 +257,26 @@ private:
     unsigned m_size;
 };
 
+// почти как в настоящем контейнере :)
 unsigned& hash_table::operator[](const unowned_string& uo_str)
 {
-    //cout << uo_str.c_str() << endl;
     uint32_t crc = crc32c(uo_str.c_str(), uo_str.size());
-    //cout << "crc: " << hex << crc << dec << endl;
     unsigned index = crc % m_max_size;
-    //cout << "index: " << index << endl;
 
     while (m_entries[index].key.c_str() != nullptr)
     {
-        //cout << "slot[" << index << "]: " << (m_entries[index].key.c_str() == nullptr ? "nullptr" : m_entries[index].key.c_str()) << endl;
         if (m_entries[index].key == uo_str)
             return m_entries[index].value;
         index++;
     }
 
-    //cout << "inserting in slot " << index << endl;
     m_entries[index].key = uo_str;
     m_entries[index].value = 0;
     m_size++;
     return m_entries[index].value;
 }
 
+// очень примерный способ для итерирования
 entry* hash_table::operator[](unsigned idx)
 {
     if (idx >= m_max_size)
@@ -342,21 +338,6 @@ int main(int argc, const char *argv[])
             h[uo_str]++;
         }
         sort_and_out(out_file, h);
-
-        // UNORDERED_MAP
-        // unordered_map<string, unsigned> m;
-        // while(true)
-        // {
-        //     unowned_string uo_str = wr.find_next_word();
-        //     if (uo_str.size() == 0)
-        //         break;
-        //     string str(uo_str.c_str(), uo_str.size());
-        //     m[str]++;
-        // }
-        // for (auto e : m)
-        // {
-        //     cout << e.first << ": " << e.second << endl;
-        // }
     }
     catch (const exception& e)
     {
