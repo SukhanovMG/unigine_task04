@@ -95,7 +95,7 @@ bool is_char(char c)
     return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 }
 
-bool to_lower(char& c)
+void to_lower(char& c)
 {
     if (c >= 'A' && c <= 'Z')
         c += 32;
@@ -290,7 +290,7 @@ entry* hash_table::operator[](unsigned idx)
 
 void sort_and_out(hash_table& h)
 {
-    entry* entries[h.size()];
+    entry **entries = new entry*[h.size()];
 
     for (unsigned i = 0, j = 0; i < h.max_size(); i++)
     {
@@ -317,6 +317,8 @@ void sort_and_out(hash_table& h)
     {
         cout << entries[i]->value << " " << entries[i]->key.c_str() << endl;
     }
+
+    delete[] entries;
 }
 
 int main(int argc, const char *argv[])
